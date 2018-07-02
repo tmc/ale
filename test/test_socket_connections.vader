@@ -1,0 +1,75 @@
+Before:
+  let g:can_run_socket_tests = !has('win32')
+  \ && (exists('*ch_close') || exists('*chanclose'))
+
+  if g:can_run_socket_tests
+    call ale#test#SetDirectory('/testplugin/test')
+
+    let g:channel_id_received = 0
+    let g:data_received = ''
+
+    function! WaitForData(expected_data, timeout) abort
+      let l:ticks = 0
+
+      while l:ticks < a:timeout
+        " Sleep first, so we can switch to the callback.
+        let l:ticks += 10
+        sleep 10ms
+
+        if g:data_received is# a:expected_data
+          break
+        endif
+      endwhile
+    endfunction
+
+    function! TestCallback(channel_id, data) abort
+      let g:channel_id_received = a:channel_id
+      let g:data_received .= a:data
+    endfunction
+
+    let g:system_output = system(g:dir . '/start-dumb-tcp-server.sh')
+    let [g:pid, g:port] = map(split(g:system_output, '\s\+'), 'str2nr(v:val)')
+  endif
+
+After:
+  if g:can_run_socket_tests
+    call ale#test#RestoreDirectory()
+
+    unlet! g:channel_id_received
+    unlet! g:data_received
+    unlet! g:channel_id
+    unlet! g:system_output
+
+    delfunction WaitForData
+    delfunction TestCallback
+
+    if has_key(g:, 'pid')
+      call system('kill ' . g:pid)
+    endif
+
+    unlet! g:pid
+    unlet! g:port
+  endif
+
+  unlet! g:can_run_socket_tests
+
+Execute(Sending and receiving connections to sockets should work):
+  if g:can_run_socket_tests
+    let g:channel_id = ale#socket#Open(
+    \ '127.0.0.1:' . g:port,
+    \ {'callback': function('TestCallback')}
+    \)
+
+    Assert g:channel_id > 0, 'The socket was not opened!'
+
+    call ale#socket#Send(g:channel_id, 'hello')
+    call ale#socket#Send(g:channel_id, ' world')
+
+    " Wait up to 1 second for the expected data to arrive.
+    call WaitForData('hello world', 1000)
+
+    AssertEqual g:channel_id, g:channel_id_received
+    AssertEqual 'hello world', g:data_received
+
+    call ale#socket#Close(g:channel_id)
+  endif
