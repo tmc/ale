@@ -2097,8 +2097,17 @@ ale#Queue(delay, [linting_flag, buffer_number])                   *ale#Queue()*
 ale#engine#CreateDirectory(buffer)               *ale#engine#CreateDirectory()*
 
   Create a new temporary directory with a unique name, and manage that
-  directory with |ale#engine#ManageDirectory()|, so it will be removed as
-  soon as possible.
+  directory with |ale#engine#ManageDirectory()|, so it will be removed as soon
+  as possible.
+
+  It is advised to only call this function from a callback function for
+  returning a linter command to run.
+
+
+ale#engine#CreateFile(buffer)                         *ale#engine#CreateFile()*
+
+  Create a new temporary file with a unique name, and manage that file with
+  |ale#engine#ManageFile()|, so it will be removed as soon as possible.
 
   It is advised to only call this function from a callback function for
   returning a linter command to run.
